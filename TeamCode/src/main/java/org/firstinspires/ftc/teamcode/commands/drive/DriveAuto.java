@@ -1,9 +1,5 @@
 package org.firstinspires.ftc.teamcode.commands.drive;
 
-import android.os.Build;
-
-import androidx.annotation.RequiresApi;
-
 import com.arcrobotics.ftclib.controller.PIDController;
 import com.arcrobotics.ftclib.controller.wpilibcontroller.ProfiledPIDController;
 import com.arcrobotics.ftclib.geometry.Pose2d;
@@ -19,7 +15,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
-import org.firstinspires.ftc.teamcode.utils.Rotation2dExtended;
+import lib.testingLib.geometry.Rotation2dExt;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +35,7 @@ public class DriveAuto extends HolonomicControllerCommand {
                 driveSubsystem::getOdometryLocation,
                 xController, yController,
                 thetaController,
-                mecanumPath::sampleAngle,
+                () -> mecanumPath.sampleAngle(time.time()),
                 (speeds) -> driveSubsystem.robotDrive(speeds),
                 driveSubsystem
         );
@@ -64,7 +60,6 @@ public class DriveAuto extends HolonomicControllerCommand {
             return this;
         }
 
-        @RequiresApi(api = Build.VERSION_CODES.N)
         public MecanumPath finish(double x, double y, double angle, double pathHeading, double maxSpeedM, MecanumDriveKinematics kinematics) {
             this.angles.add(Rotation2d.fromDegrees(angle));
 
@@ -84,12 +79,7 @@ public class DriveAuto extends HolonomicControllerCommand {
             return this;
         }
 
-        Rotation2d sampleAngle() {
-            return new Rotation2d();
-        }
-
         Rotation2d sampleAngle(double timeSeconds) {
-
             double totalTime = this.trajectory.getTotalTimeSeconds();
             int numStates = this.angles.size();
 
@@ -104,19 +94,27 @@ public class DriveAuto extends HolonomicControllerCommand {
             /*
             double progress = (timeSeconds / totalTime) * (numStates - 1);
             int index = (int) progress;
-            double fractional = progress - (double) index;
+            double fractional = progress - (double) index;*/
 
-            Rotation2dExtended startAngle = (Rotation2dExtended) this.angles.get(index);
-            Rotation2d endAngle = this.angles.get(index + 1);
-            return startAngle.interpolate(endAngle, fractional);*/
-
-            int closest = -1;
-            double closestSeparation = -1.0;
+            int index = -1;
+            double closestSeparation = Double.MAX_VALUE;
             for (int x = 0; x < angleTimestamps.size(); x++) {
-                double separation = 0;
+                double separation = timeSeconds - angleTimestamps.get(x);
+                if (separation >= 0) {
+                    if (separation < closestSeparation) {
+                        closestSeparation = separation;
+                        index = x;
+                    }
+                }
             }
 
-            return new Rotation2d();
+            double timeBetweenPoints = angleTimestamps.get(index + 1) - angleTimestamps.get(index);
+            double timeFromPreviousPoint = timeSeconds - angleTimestamps.get(index);
+            double fractional = timeFromPreviousPoint / timeBetweenPoints;
+
+            Rotation2dExt startAngle = (Rotation2dExt) this.angles.get(index);
+            Rotation2d endAngle = this.angles.get(index + 1);
+            return startAngle.interpolate(endAngle, fractional);
         }
     }
 }
